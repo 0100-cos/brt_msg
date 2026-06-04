@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>메세지 보드</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+:root {
+  --blur: blur(20px) saturate(180%);
+  --radius: 22px;
+}
+
+html, body {
+  width: 100%; min-height: 100dvh;
+  font-family: 'Noto Sans KR', -apple-system, sans-serif;
+  overflow-x: hidden;
+  user-select: none;
+}
+
+/* ─── 밝은 그라디언트 배경 ─── */
+body {
+  background: linear-gradient(135deg, #e0e7ff 0%, #f0f9ff 35%, #fdf4ff 65%, #fff7ed 100%);
+  background-attachment: fixed;
+}
+
+/* 배경 장식 orb – 밝고 파스텔 */
+.bg-orb {
+  position: fixed; border-radius: 50%; filter: blur(70px);
+  pointer-events: none; z-index: 0;
+  animation: orbFloat 22s ease-in-out infinite;
+}
+.bg-orb:nth-child(1){width:500px;height:500px;background:rgba(167,139,250,0.22);top:-120px;left:-100px;animation-duration:24s;}
+.bg-orb:nth-child(2){width:420px;height:420px;background:rgba(56,189,248,0.18);bottom:-100px;right:-80px;animation-duration:20s;animation-delay:-8s;}
+.bg-orb:nth-child(3){width:360px;height:360px;background:rgba(244,114,182,0.16);top:35%;left:55%;animation-duration:28s;animation-delay:-14s;}
+.bg-orb:nth-child(4){width:280px;height:280px;background:rgba(134,239,172,0.18);top:60%;left:10%;animation-duration:19s;animation-delay:-5s;}
+@keyframes orbFloat {
+  0%,100%{transform:translate(0,0) scale(1);}
+  33%{transform:translate(28px,-18px) scale(1.04);}
+  66%{transform:translate(-18px,26px) scale(0.96);}
+}
+
+/* ─── HEADER ─── */
+.header {
+  position: fixed; top:0; left:0; right:0; z-index:100;
+  height: 60px;
+  background: rgba(255,255,255,0.55);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border-bottom: 1px solid rgba(255,255,255,0.7);
+  box-shadow: 0 2px 20px rgba(0,0,0,0.06);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 22px;
+}
+.header-title h1 {
+  font-size: 1rem; font-weight: 700;
+  color: #1e1b4b; letter-spacing: -0.02em;
+}
+.header-title span {
+  font-size: 0.65rem; color: #6b7280;
+  font-weight: 400; margin-top: 1px; display: block;
+}
+.header-actions { display: flex; gap: 8px; }
+
+/* ─── BUTTONS ─── */
+.btn {
+  cursor: pointer; border: none; font-family: inherit;
+  font-weight: 600; font-size: 0.8rem;
+  border-radius: 30px; padding: 7px 15px;
+  display: flex; align-items: center; gap: 5px;
+  transition: all 0.18s cubic-bezier(.4,0,.2,1);
+}
+.btn:active { transform: scale(0.95); }
+
+.btn-light {
+  background: rgba(255,255,255,0.7);
+  color: #374151;
+  border: 1px solid rgba(0,0,0,0.09);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.btn-light:hover { background: rgba(255,255,255,0.9); }
+
+.btn-primary {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff;
+  box-shadow: 0 2px 12px rgba(99,102,241,0.35);
+}
+.btn-primary:hover { box-shadow: 0 4px 18px rgba(99,102,241,0.45); filter: brightness(1.05); }
+
+.btn-red {
+  background: rgba(254,226,226,0.8);
+  color: #dc2626;
+  border: 1px solid rgba(220,38,38,0.15);
+}
+.btn-red:hover { background: rgba(254,226,226,1); }
+.btn-red.active {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff; border-color: transparent;
+  box-shadow: 0 2px 10px rgba(239,68,68,0.35);
+}
+
+/* ─── BOARD ─── */
+#board {
+  position: relative; width: 100%;
+  min-height: 100dvh; padding-top: 60px; z-index: 1;
+}
+.float-area {
+  position: relative; width: 100%;
+  min-height: calc(100dvh - 60px);
+}
+
+/* ─── EMPTY STATE ─── */
+.empty-state {
+  position: absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  text-align: center; pointer-events: none;
+}
+.empty-state .icon { font-size: 2.6rem; opacity: 0.35; display: block; margin-bottom: 10px; }
+.empty-state p { font-size: 0.85rem; color: rgba(100,80,160,0.45); line-height: 1.9; }
+
+/* ─── FLOATING BUBBLE ─── */
+.float-bubble {
+  position: absolute;
+  cursor: grab;
+  animation: bubbleIn 0.42s cubic-bezier(.2,.8,.3,1.1) both;
+  touch-action: none;
+  /* z-index는 JS로 관리 */
+}
+.float-bubble:active { cursor: grabbing; }
+.float-bubble.dragging { cursor: grabbing; transition: none !important; }
+
+@keyframes bubbleIn {
+  from { opacity:0; transform: scale(0.65) translateY(20px); }
+  to   { opacity:1; transform: scale(1) translateY(0); }
+}
+
+/* 말풍선 레이아웃 (아바타 + 말풍선) */
+.bubble-layout {
+  display: flex; align-items: flex-end; gap: 9px;
+  pointer-events: none; /* 드래그는 float-bubble에서 */
+  max-width: 260px;
+}
+
+/* 프사 */
+.bbl-avatar {
+  width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+  object-fit: cover;
+  border: 2px solid rgba(255,255,255,0.85);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+.bbl-avatar-ph {
+  width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem;
+  border: 2px solid rgba(255,255,255,0.8);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* 말풍선 본체 */
+.bbl-wrap { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.bbl-name {
+  font-size: 0.7rem; font-weight: 700;
+  color: rgba(30,20,80,0.65);
+  padding-left: 13px; letter-spacing: -0.01em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 180px;
+}
+.bbl-body {
+  /* 글래스모피즘 */
+  background: rgba(255,255,255,0.48);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border: 1.5px solid rgba(255,255,255,0.75);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.09), 0 1px 4px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9);
+  border-radius: 18px 18px 18px 4px;
+  padding: 10px 14px;
+  font-size: 0.82rem; line-height: 1.52;
+  color: #1e1b4b;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  position: relative;
+  /* 카드 컬러 tint */
+}
+/* tint overlay */
+.bbl-body::before {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  opacity: 0.12;
+  pointer-events: none;
+}
+
+/* hover */
+.float-bubble:hover .bbl-body {
+  box-shadow: 0 8px 30px rgba(0,0,0,0.13), 0 2px 8px rgba(0,0,0,0.07), inset 0 1px 0 rgba(255,255,255,0.95);
+  border-color: rgba(255,255,255,0.9);
+}
+
+/* 삭제 버튼 */
+.bbl-del {
+  position: absolute; top:-7px; right:-7px;
+  width:22px; height:22px; border-radius:50%;
+  background: #ef4444; color:#fff; border:2px solid #fff;
+  font-size:0.6rem; font-weight:800; cursor:pointer;
+  display:none; align-items:center; justify-content:center;
+  box-shadow:0 2px 6px rgba(239,68,68,0.4); z-index:5;
+  pointer-events: all;
+}
+.delete-mode .bbl-del { display:flex; }
+
+/* ─── CLICK RIPPLE HINT ─── */
+.float-bubble::after {
+  content:'';
+  position:absolute; inset:-4px;
+  border-radius:24px;
+  border:2px solid rgba(99,102,241,0.0);
+  transition: border-color 0.2s;
+  pointer-events:none;
+}
+.float-bubble:hover::after {
+  border-color: rgba(99,102,241,0.22);
+}
+
+/* ─── VIEW MODAL ─── */
+.overlay {
+  position:fixed; inset:0; z-index:300;
+  background:rgba(200,200,255,0.25);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  display:flex; align-items:center; justify-content:center;
+  padding:20px; cursor:pointer;
+  animation:fadeIn 0.2s ease;
+}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+.char-card {
+  cursor:default;
+  width:min(360px,94vw);
+  border-radius:26px; overflow:hidden;
+  box-shadow:0 24px 64px rgba(0,0,0,0.18), 0 6px 20px rgba(0,0,0,0.1);
+  animation:cardPop 0.32s cubic-bezier(.2,.8,.3,1.12);
+  background:rgba(255,255,255,0.72);
+  backdrop-filter:blur(30px) saturate(200%);
+  -webkit-backdrop-filter:blur(30px) saturate(200%);
+  border:1.5px solid rgba(255,255,255,0.9);
+}
+@keyframes cardPop{
+  from{opacity:0;transform:scale(0.75) translateY(20px);}
+  to{opacity:1;transform:scale(1) translateY(0);}
+}
+
+/* 이미지 꽉차게 */
+.char-img-section {
+  width:100%; height:280px; position:relative; overflow:hidden;
+}
+.char-img-full { width:100%;height:100%;object-fit:cover;display:block; }
+.char-img-ph-full {
+  width:100%;height:100%;
+  display:flex;align-items:center;justify-content:center;font-size:5rem;
+}
+.char-img-section::after {
+  content:''; position:absolute; bottom:0;left:0;right:0; height:110px;
+  background:linear-gradient(to bottom, transparent, rgba(255,255,255,0.82));
+  pointer-events:none;
+}
+.char-name-ov {
+  position:absolute;bottom:14px;left:20px;right:20px;z-index:2;
+  font-size:1.45rem;font-weight:800;color:#1e1b4b;
+  letter-spacing:-0.03em;
+  text-shadow: 0 1px 6px rgba(255,255,255,0.6);
+}
+
+.char-body { padding:16px 20px 22px; }
+.speech-bubble {
+  background:rgba(255,255,255,0.6);
+  backdrop-filter:blur(8px);
+  border:1.5px solid rgba(255,255,255,0.85);
+  border-radius:14px;
+  padding:13px 16px;
+  font-size:0.92rem;line-height:1.75;
+  color:#1e1b4b;
+  white-space:pre-wrap;word-break:break-word;
+  box-shadow:0 2px 12px rgba(0,0,0,0.06);
+  position:relative;
+}
+.speech-bubble::before {
+  content:'"';
+  position:absolute;top:-1px;left:11px;
+  font-size:2rem;color:rgba(99,102,241,0.2);
+  font-family:Georgia,serif;line-height:1;
+}
+.char-close-hint {
+  text-align:center;margin-top:13px;
+  font-size:0.67rem;color:#9ca3af;letter-spacing:0.04em;
+}
+
+/* ─── SHEET ─── */
+.sheet-overlay {
+  position:fixed;inset:0;z-index:300;
+  background:rgba(200,200,240,0.3);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  display:flex;align-items:flex-end;justify-content:center;
+  animation:fadeIn 0.18s ease;
+}
+.sheet {
+  cursor:default;
+  width:min(560px,100vw);
+  background:rgba(255,255,255,0.82);
+  backdrop-filter:blur(30px) saturate(200%);
+  -webkit-backdrop-filter:blur(30px) saturate(200%);
+  border:1.5px solid rgba(255,255,255,0.9);
+  border-bottom:none;
+  border-radius:24px 24px 0 0;
+  padding:8px 0 40px;
+  animation:sheetUp 0.28s cubic-bezier(.4,0,.2,1);
+  max-height:94dvh;overflow-y:auto;
+  box-shadow:0 -8px 40px rgba(0,0,0,0.1);
+}
+@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.sheet-handle {
+  width:36px;height:4px;
+  background:rgba(0,0,0,0.15);border-radius:2px;
+  margin:0 auto 14px;
+}
+.sheet-header {
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px 14px;
+  border-bottom:1px solid rgba(0,0,0,0.07);
+}
+.sheet-header h2 { font-size:0.98rem;font-weight:700;color:#1e1b4b;letter-spacing:-0.02em; }
+.sheet-body { padding:18px 20px 0;display:flex;flex-direction:column;gap:16px; }
+
+.field-label {
+  font-size:0.68rem;font-weight:700;
+  color:#6b7280;letter-spacing:0.07em;text-transform:uppercase;margin-bottom:6px;
+}
+.field-input {
+  width:100%;
+  background:rgba(243,244,246,0.8);
+  border:1.5px solid rgba(0,0,0,0.07);
+  border-radius:12px;padding:11px 14px;
+  font-family:inherit;font-size:0.9rem;color:#1f2937;
+  outline:none;resize:vertical;transition:border-color 0.15s,background 0.15s;
+}
+.field-input:focus{border-color:rgba(99,102,241,0.5);background:rgba(238,242,255,0.6);}
+.field-input::placeholder{color:#9ca3af;}
+textarea.field-input{min-height:86px;}
+
+.img-upload-row {
+  background:rgba(243,244,246,0.7);
+  border:1.5px solid rgba(0,0,0,0.06);
+  border-radius:12px;padding:12px 14px;
+  display:flex;align-items:center;gap:12px;cursor:pointer;
+  transition:background 0.15s;
+}
+.img-upload-row:hover{background:rgba(238,242,255,0.7);}
+.img-thumb-c{width:46px;height:46px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid rgba(255,255,255,0.8);}
+.img-icon-c{width:46px;height:46px;border-radius:50%;background:rgba(99,102,241,0.1);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.2rem;}
+.img-upload-text p:first-child{font-size:0.83rem;font-weight:600;color:#6366f1;}
+.img-upload-text p:last-child{font-size:0.7rem;color:#9ca3af;margin-top:2px;}
+
+/* 컬러 피커 */
+.color-box {
+  background:rgba(243,244,246,0.7);
+  border:1.5px solid rgba(0,0,0,0.06);
+  border-radius:12px;padding:14px;
+  display:flex;flex-direction:column;gap:10px;
+}
+.color-top{display:flex;align-items:center;gap:10px;}
+.color-preview{width:32px;height:32px;border-radius:8px;flex-shrink:0;border:1.5px solid rgba(0,0,0,0.09);box-shadow:0 2px 6px rgba(0,0,0,0.1);}
+.hex-input{
+  background:#fff;border:1.5px solid rgba(0,0,0,0.09);border-radius:8px;
+  padding:6px 10px;font-family:'SF Mono','Courier New',monospace;
+  font-size:0.82rem;color:#374151;outline:none;width:100px;letter-spacing:0.05em;
+}
+.hex-input:focus{border-color:#6366f1;}
+.hex-label{font-size:0.7rem;color:#9ca3af;}
+
+.sl-row{display:flex;align-items:center;gap:8px;}
+.sl-ch{font-size:0.65rem;font-weight:800;width:12px;flex-shrink:0;}
+.sl-ch.r{color:#ef4444}.sl-ch.g{color:#22c55e}.sl-ch.b{color:#3b82f6}
+input[type=range].rgb-sl{
+  -webkit-appearance:none;flex:1;height:4px;border-radius:2px;outline:none;cursor:pointer;
+}
+input[type=range].rgb-sl::-webkit-slider-thumb{
+  -webkit-appearance:none;width:17px;height:17px;border-radius:50%;
+  background:#fff;border:2px solid rgba(0,0,0,0.12);
+  box-shadow:0 1px 4px rgba(0,0,0,0.18);cursor:pointer;
+}
+.sl-num{font-size:0.68rem;font-family:monospace;color:#9ca3af;width:26px;text-align:right;flex-shrink:0;}
+
+.sheet-footer{padding:14px 20px 0;display:flex;gap:10px;}
+.sheet-footer .btn{flex:1;justify-content:center;padding:11px 16px;font-size:0.86rem;}
+
+/* ─── SMALL MODALS ─── */
+.sm-overlay {
+  position:fixed;inset:0;z-index:400;
+  background:rgba(200,200,240,0.35);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  display:flex;align-items:center;justify-content:center;
+  padding:20px;cursor:pointer;animation:fadeIn 0.18s ease;
+}
+.sm-box {
+  cursor:default;
+  background:rgba(255,255,255,0.88);
+  backdrop-filter:blur(24px) saturate(200%);-webkit-backdrop-filter:blur(24px) saturate(200%);
+  border:1.5px solid rgba(255,255,255,0.95);
+  border-radius:22px;padding:24px 22px;
+  width:min(300px,90vw);text-align:center;
+  box-shadow:0 20px 60px rgba(0,0,0,0.12);
+  animation:cardPop 0.24s cubic-bezier(.2,.8,.3,1.1);
+}
+.sm-box h3{font-size:1rem;font-weight:700;color:#1e1b4b;margin-bottom:8px;letter-spacing:-0.02em;}
+.sm-box p{font-size:0.84rem;color:#6b7280;line-height:1.65;margin-bottom:18px;}
+.sm-box .btns{display:flex;flex-direction:column;gap:8px;}
+.sm-box .btns .btn{justify-content:center;padding:11px 16px;font-size:0.86rem;}
+
+.pw-box input{
+  width:100%;background:rgba(243,244,246,0.8);
+  border:1.5px solid rgba(0,0,0,0.08);border-radius:10px;
+  padding:11px;font-family:inherit;font-size:1rem;
+  text-align:center;letter-spacing:0.15em;color:#1f2937;
+  outline:none;margin-bottom:6px;
+}
+.pw-box input:focus{border-color:#6366f1;}
+#pw-error{font-size:0.74rem;color:#ef4444;min-height:18px;margin-bottom:10px;}
+.pw-actions{display:flex;gap:8px;}
+.pw-actions .btn{flex:1;justify-content:center;}
+
+/* ─── TOAST ─── */
+#toast {
+  position:fixed;bottom:28px;left:50%;
+  transform:translateX(-50%) translateY(60px);
+  background:rgba(30,27,75,0.85);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border:1px solid rgba(255,255,255,0.2);
+  color:rgba(255,255,255,0.95);font-size:0.82rem;font-weight:500;
+  padding:10px 20px;border-radius:20px;
+  box-shadow:0 4px 20px rgba(0,0,0,0.15);
+  z-index:9999;opacity:0;white-space:nowrap;
+  transition:transform 0.28s cubic-bezier(.4,0,.2,1),opacity 0.28s;
+}
+#toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
+
+/* 스크롤바 */
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:rgba(99,102,241,0.25);border-radius:2px;}
+</style>
+</head>
+<body>
+
+<div class="bg-orb"></div>
+<div class="bg-orb"></div>
+<div class="bg-orb"></div>
+<div class="bg-orb"></div>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-title">
+    <h1>💬 메세지 보드</h1>
+    <span id="msg-count">0개의 메세지</span>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-red" id="del-btn">🔒 관리</button>
+    <button class="btn btn-primary" id="write-btn">✉ 작성하기</button>
+  </div>
+</header>
+
+<!-- BOARD -->
+<div id="board">
+  <div class="float-area" id="float-area">
+    <div class="empty-state" id="empty-state">
+      <span class="icon">💬</span>
+      <p>아직 메세지가 없어요<br>첫 번째 메세지를 남겨보세요</p>
+    </div>
+  </div>
+</div>
+
+<!-- VIEW MODAL -->
+<div id="view-modal" style="display:none">
+  <div class="overlay" id="view-overlay">
+    <div class="char-card" onclick="event.stopPropagation()">
+      <div class="char-img-section" id="char-img-sec">
+        <div id="char-img-inner"></div>
+        <div class="char-name-ov" id="char-name-ov"></div>
+      </div>
+      <div class="char-body">
+        <div class="speech-bubble" id="char-speech"></div>
+        <p class="char-close-hint">화면을 터치하면 닫힙니다</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- WRITE MODAL -->
+<div id="write-modal" style="display:none">
+  <div class="sheet-overlay" id="write-overlay">
+    <div class="sheet" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <h2>✉ 메세지 작성</h2>
+        <button class="btn btn-light" style="padding:6px 12px;font-size:0.76rem" onclick="closeWrite()">취소</button>
+      </div>
+      <div class="sheet-body">
+        <div>
+          <div class="field-label">이미지 (선택)</div>
+          <div class="img-upload-row" onclick="document.getElementById('img-file').click()">
+            <div id="img-thumb-wrap"><div class="img-icon-c">🖼</div></div>
+            <div class="img-upload-text">
+              <p>이미지 선택하기</p>
+              <p>JPG, PNG, GIF · 선택사항</p>
+            </div>
+          </div>
+          <input type="file" id="img-file" accept="image/*" style="display:none">
+        </div>
+        <div>
+          <div class="field-label">이름 *</div>
+          <input class="field-input" type="text" id="input-name" placeholder="이름을 입력하세요" maxlength="20">
+        </div>
+        <div>
+          <div class="field-label">메세지 *</div>
+          <textarea class="field-input" id="input-msg" placeholder="메세지를 입력하세요..." maxlength="400"></textarea>
+        </div>
+        <div>
+          <div class="field-label">카드 컬러 (말풍선 tint)</div>
+          <div class="color-box">
+            <div class="color-top">
+              <div class="color-preview" id="color-preview"></div>
+              <input type="text" class="hex-input" id="hex-input" value="#A8D8F0" placeholder="#RRGGBB" maxlength="7">
+              <span class="hex-label">HEX 직접 입력</span>
+            </div>
+            <div class="sl-row">
+              <span class="sl-ch r">R</span>
+              <input type="range" class="rgb-sl" id="sl-r" min="0" max="255" value="168">
+              <span class="sl-num" id="vr">168</span>
+            </div>
+            <div class="sl-row">
+              <span class="sl-ch g">G</span>
+              <input type="range" class="rgb-sl" id="sl-g" min="0" max="255" value="216">
+              <span class="sl-num" id="vg">216</span>
+            </div>
+            <div class="sl-row">
+              <span class="sl-ch b">B</span>
+              <input type="range" class="rgb-sl" id="sl-b" min="0" max="255" value="240">
+              <span class="sl-num" id="vb">240</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="sheet-footer">
+        <button class="btn btn-light" onclick="closeWrite()">취소</button>
+        <button class="btn btn-primary" onclick="submitMsg()">작성 완료</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM MODAL -->
+<div id="confirm-modal" style="display:none">
+  <div class="sm-overlay" onclick="closeConfirm()">
+    <div class="sm-box" onclick="event.stopPropagation()">
+      <h3>등록하시겠습니까?</h3>
+      <p>작성 완료 후<br><strong style="color:#6366f1">수정 및 삭제가 불가능</strong>합니다.</p>
+      <div class="btns">
+        <button class="btn btn-primary" onclick="confirmPost()">네, 등록합니다</button>
+        <button class="btn btn-light" onclick="closeConfirm()">다시 확인할게요</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PW MODAL -->
+<div id="pw-modal" style="display:none">
+  <div class="sm-overlay" onclick="closePw()">
+    <div class="sm-box pw-box" onclick="event.stopPropagation()">
+      <h3>🔐 관리자 인증</h3>
+      <input type="password" id="pw-input" placeholder="비밀번호" onkeydown="if(event.key==='Enter')checkPw()">
+      <p id="pw-error"></p>
+      <div class="pw-actions">
+        <button class="btn btn-light" onclick="closePw()">취소</button>
+        <button class="btn btn-primary" onclick="checkPw()">확인</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- EASTER EGG MODAL -->
+<div id="egg-modal" style="display:none">
+  <div class="sm-overlay" onclick="closeEgg()">
+    <div class="sm-box" onclick="event.stopPropagation()">
+      <h3 id="egg-title"></h3>
+      <p id="egg-msg" style="white-space:pre-wrap"></p>
+      <div class="btns"><button class="btn btn-primary" onclick="closeEgg()">확인</button></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ══════════ CONFIG ══════════
+const ADMIN_PW = 'board2025';
+const EGG1 = ['브라운','착한친구','핑크','사회자'];
+const EGG2 = ['김솔음','솔음','포도','포도요원','노루','노루주임'];
+const EGG1_MSG = '하하하, 친구! 바쁜 나를 대신해서 메세지를 작성해주는 건가요?\n하지만 나를 배려하지 않아도 된답니다!';
+const EGG2_MSG = '죄송합니다만, 사칭은 삼가주세요.';
+
+// ══════════ STATE ══════════
+let messages = [];
+let positions = {}; // id -> {x, y}
+let deleteMode = false;
+let pendingMsg = null;
+let uploadedImg = null;
+let rgb = {r:168, g:216, b:240};
+let baseZ = 10; // z-index 기준
+
+try {
+  messages  = JSON.parse(localStorage.getItem('msgboard_v4') || '[]');
+  positions = JSON.parse(localStorage.getItem('msgboard_v4_pos') || '{}');
+} catch(e){}
+
+// ══════════ HELPERS ══════════
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const norm = s => s.replace(/\s/g,'').toLowerCase();
+const hexToRgb = hex => {
+  const m = hex.replace('#','').match(/([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i);
+  return m ? {r:parseInt(m[1],16),g:parseInt(m[2],16),b:parseInt(m[3],16)} : null;
+};
+const rgbToHex = (r,g,b) => '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('').toUpperCase();
+const hexToRgba = (hex, a) => { const c=hexToRgb(hex); return c?`rgba(${c.r},${c.g},${c.b},${a})`:`rgba(168,216,240,${a})`; };
+const getEmoji = name => {
+  const e=['🌟','🌙','🌊','🍀','🌸','⭐','🦋','🔮','✨','🎭','🌈','🐾'];
+  let h=0; for(let i=0;i<name.length;i++) h=(h*31+name.charCodeAt(i))&0xffff;
+  return e[h%e.length];
+};
+
+// ══════════ LAYOUT: 중앙부터 채워지는 초기 위치 ══════════
+function getInitialPositions(msgs) {
+  const BUBBLE_W = 270, BUBBLE_H = 110;
+  const area = document.getElementById('float-area');
+  const W = area.offsetWidth || window.innerWidth;
+  const H = Math.max(area.offsetHeight, window.innerHeight - 60);
+
+  const cols = Math.max(1, Math.floor((W - 32) / (BUBBLE_W + 20)));
+  const rows = Math.ceil(msgs.length / cols);
+  const totalW = cols * BUBBLE_W + (cols-1)*20;
+  const totalH = rows * BUBBLE_H + (rows-1)*32;
+  const startX = Math.max(16, (W - totalW) / 2);
+  const startY = Math.max(20, (H - totalH) / 2);
+
+  const tilts = [-2.2,-1.1,0,0.9,2.0,-1.6,1.5,-0.5];
+  const result = {};
+
+  msgs.forEach((m, i) => {
+    if (positions[m.id]) { result[m.id] = positions[m.id]; return; }
+    const col = i % cols, row = Math.floor(i / cols);
+    const rx = (Math.random()-0.5)*16, ry = (Math.random()-0.5)*12;
+    result[m.id] = {
+      x: startX + col*(BUBBLE_W+20) + rx,
+      y: startY + row*(BUBBLE_H+32) + ry,
+      tilt: tilts[i % tilts.length]
+    };
+  });
+  return result;
+}
+
+// ══════════ RENDER ══════════
+function render() {
+  const area = document.getElementById('float-area');
+  area.querySelectorAll('.float-bubble').forEach(el => el.remove());
+
+  document.getElementById('empty-state').style.display = messages.length ? 'none' : 'block';
+  document.getElementById('msg-count').textContent = messages.length + '개의 메세지';
+
+  if (!messages.length) return;
+
+  const pos = getInitialPositions(messages);
+  positions = pos;
+  savePositions();
+
+  // 최신 메세지일수록 높은 z-index (위에 표시)
+  messages.forEach((m, i) => {
+    const p = pos[m.id];
+    const zIdx = baseZ + i; // 뒤로 갈수록 (최신일수록) 높음
+
+    // 아바타
+    let avatarHtml;
+    if (m.img) {
+      avatarHtml = `<img class="bbl-avatar" src="${m.img}" alt="">`;
+    } else {
+      avatarHtml = `<div class="bbl-avatar-ph" style="background:${hexToRgba(m.color,0.18)}">${getEmoji(m.name)}</div>`;
+    }
+
+    const bubble = document.createElement('div');
+    bubble.className = 'float-bubble';
+    bubble.dataset.id = m.id;
+    bubble.style.cssText = `left:${p.x}px; top:${p.y}px; z-index:${zIdx}; transform:rotate(${p.tilt||0}deg); animation-delay:${i*0.04}s`;
+
+    bubble.innerHTML = `
+      <div class="bubble-layout">
+        ${avatarHtml}
+        <div class="bbl-wrap">
+          <div class="bbl-name">${esc(m.name)}</div>
+          <div class="bbl-body" style="--tint:${m.color}">
+            <button class="bbl-del" onclick="delBubble(event,'${m.id}')">✕</button>
+            ${esc(m.msg)}
+          </div>
+        </div>
+      </div>`;
+
+    // bbl-body tint
+    bubble.querySelector('.bbl-body').style.setProperty('--c', m.color);
+    bubble.querySelector('.bbl-body::before');
+    const body = bubble.querySelector('.bbl-body');
+    body.style.backgroundImage = `linear-gradient(135deg, ${hexToRgba(m.color,0.18)} 0%, rgba(255,255,255,0) 100%)`;
+
+    attachDrag(bubble, m.id);
+    bubble.addEventListener('click', (e) => {
+      if (bubble.dataset.dragged === '1') return;
+      openView(m);
+    });
+
+    area.appendChild(bubble);
+  });
+
+  // float-area 높이 조정
+  let maxY = 0;
+  Object.values(pos).forEach(p => { if (p.y+140>maxY) maxY=p.y+140; });
+  area.style.minHeight = Math.max(maxY, window.innerHeight-60) + 'px';
+
+  if (deleteMode) area.classList.add('delete-mode');
+  else area.classList.remove('delete-mode');
+}
+
+// ══════════ DRAG ══════════
+function attachDrag(el, id) {
+  let startX, startY, startLeft, startTop, isDragging = false, moved = false;
+
+  const onStart = (e) => {
+    // 삭제 버튼이면 드래그 무시
+    if (e.target.classList.contains('bbl-del')) return;
+    e.preventDefault();
+
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    startX = cx; startY = cy;
+    startLeft = parseFloat(el.style.left) || 0;
+    startTop  = parseFloat(el.style.top)  || 0;
+    isDragging = true; moved = false;
+    el.dataset.dragged = '0';
+
+    // 최상위로
+    baseZ++;
+    el.style.zIndex = baseZ + messages.length + 10;
+    el.classList.add('dragging');
+  };
+
+  const onMove = (e) => {
+    if (!isDragging) return;
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    const dx = cx - startX, dy = cy - startY;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) { moved = true; el.dataset.dragged = '1'; }
+    if (!moved) return;
+    e.preventDefault();
+    el.style.left = (startLeft + dx) + 'px';
+    el.style.top  = (startTop  + dy) + 'px';
+  };
+
+  const onEnd = () => {
+    if (!isDragging) return;
+    isDragging = false;
+    el.classList.remove('dragging');
+    // 위치 저장
+    positions[id] = {
+      x: parseFloat(el.style.left),
+      y: parseFloat(el.style.top),
+      tilt: positions[id]?.tilt || 0
+    };
+    savePositions();
+    // 클릭 판정용 딜레이
+    setTimeout(() => { el.dataset.dragged = '0'; }, 80);
+  };
+
+  el.addEventListener('mousedown',  onStart);
+  el.addEventListener('touchstart', onStart, {passive:false});
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('touchmove',  onMove, {passive:false});
+  window.addEventListener('mouseup',   onEnd);
+  window.addEventListener('touchend',  onEnd);
+}
+
+// ══════════ VIEW MODAL ══════════
+function openView(m) {
+  const sec  = document.getElementById('char-img-sec');
+  const inner= document.getElementById('char-img-inner');
+  const nameEl= document.getElementById('char-name-ov');
+  const speech= document.getElementById('char-speech');
+
+  const c = hexToRgb(m.color) || {r:168,g:216,b:240};
+  sec.style.background = `linear-gradient(145deg, ${m.color}, rgb(${Math.max(0,c.r-40)},${Math.max(0,c.g-40)},${Math.max(0,c.b-50)}))`;
+
+  inner.innerHTML = m.img
+    ? `<img class="char-img-full" src="${m.img}" alt="">`
+    : `<div class="char-img-ph-full" style="background:linear-gradient(145deg,${m.color},rgb(${Math.max(0,c.r-40)},${Math.max(0,c.g-40)},${Math.max(0,c.b-50)}))">${getEmoji(m.name)}</div>`;
+
+  nameEl.textContent = m.name;
+  speech.textContent = m.msg;
+  document.getElementById('view-modal').style.display = 'block';
+}
+document.getElementById('view-overlay').addEventListener('click', () => {
+  document.getElementById('view-modal').style.display = 'none';
+});
+
+// ══════════ WRITE MODAL ══════════
+document.getElementById('write-btn').addEventListener('click', openWrite);
+function openWrite() {
+  document.getElementById('input-name').value='';
+  document.getElementById('input-msg').value='';
+  uploadedImg=null;
+  document.getElementById('img-thumb-wrap').innerHTML='<div class="img-icon-c">🖼</div>';
+  document.getElementById('img-file').value='';
+  setRgb(168,216,240);
+  document.getElementById('write-modal').style.display='block';
+}
+document.getElementById('write-overlay').addEventListener('click', function(e){
+  if(e.target===this) closeWrite();
+});
+function closeWrite(){ document.getElementById('write-modal').style.display='none'; }
+
+document.getElementById('img-file').addEventListener('change', function(){
+  const f=this.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=e=>{
+    uploadedImg=e.target.result;
+    document.getElementById('img-thumb-wrap').innerHTML=`<img class="img-thumb-c" src="${uploadedImg}" alt="">`;
+  };
+  r.readAsDataURL(f);
+});
+
+// ── 컬러 ──
+function setRgb(r,g,b){
+  r=Math.max(0,Math.min(255,Math.round(r)));
+  g=Math.max(0,Math.min(255,Math.round(g)));
+  b=Math.max(0,Math.min(255,Math.round(b)));
+  rgb={r,g,b};
+  const hex=rgbToHex(r,g,b);
+  document.getElementById('color-preview').style.background=hex;
+  document.getElementById('hex-input').value=hex;
+  document.getElementById('sl-r').value=r; document.getElementById('vr').textContent=r;
+  document.getElementById('sl-g').value=g; document.getElementById('vg').textContent=g;
+  document.getElementById('sl-b').value=b; document.getElementById('vb').textContent=b;
+  document.getElementById('sl-r').style.background=`linear-gradient(to right,#f3f4f6,#ef4444)`;
+  document.getElementById('sl-g').style.background=`linear-gradient(to right,#f3f4f6,#22c55e)`;
+  document.getElementById('sl-b').style.background=`linear-gradient(to right,#f3f4f6,#3b82f6)`;
+}
+setRgb(168,216,240);
+
+['r','g','b'].forEach(ch=>{
+  document.getElementById('sl-'+ch).addEventListener('input',function(){
+    rgb[ch]=parseInt(this.value);
+    const hex=rgbToHex(rgb.r,rgb.g,rgb.b);
+    document.getElementById('color-preview').style.background=hex;
+    document.getElementById('hex-input').value=hex;
+    document.getElementById('v'+ch).textContent=this.value;
+  });
+});
+document.getElementById('hex-input').addEventListener('input',function(){
+  let v=this.value.trim();
+  if(!v.startsWith('#')) v='#'+v;
+  if(/^#[0-9a-f]{6}$/i.test(v)){const c=hexToRgb(v);if(c)setRgb(c.r,c.g,c.b);}
+  document.getElementById('color-preview').style.background=v;
+});
+
+// ══════════ EASTER EGG ══════════
+function checkEgg(name){
+  const n=norm(name);
+  for(const k of EGG1) if(n.includes(norm(k))){ showEgg('👀 잠깐!',EGG1_MSG); return true; }
+  for(const k of EGG2) if(n.includes(norm(k))){ showEgg('🚫 사칭 주의',EGG2_MSG); return true; }
+  return false;
+}
+function showEgg(t,m){ document.getElementById('egg-title').textContent=t; document.getElementById('egg-msg').textContent=m; document.getElementById('egg-modal').style.display='block'; }
+function closeEgg(){ document.getElementById('egg-modal').style.display='none'; }
+
+// ══════════ SUBMIT ══════════
+function submitMsg(){
+  const name=document.getElementById('input-name').value.trim();
+  const msg=document.getElementById('input-msg').value.trim();
+  if(!name){ toast('이름을 입력해주세요'); return; }
+  if(!msg){  toast('메세지를 입력해주세요'); return; }
+  if(checkEgg(name)) return;
+  pendingMsg={id:Date.now().toString(),name,msg,img:uploadedImg,color:rgbToHex(rgb.r,rgb.g,rgb.b),ts:Date.now()};
+  document.getElementById('confirm-modal').style.display='block';
+}
+function closeConfirm(){ document.getElementById('confirm-modal').style.display='none'; pendingMsg=null; }
+function confirmPost(){
+  if(!pendingMsg) return;
+  messages.push(pendingMsg);
+  save(); render();
+  document.getElementById('confirm-modal').style.display='none';
+  document.getElementById('write-modal').style.display='none';
+  pendingMsg=null;
+  toast('메세지가 등록됐어요 ✓');
+}
+
+// ══════════ DELETE ══════════
+document.getElementById('del-btn').addEventListener('click',function(){
+  if(deleteMode){
+    deleteMode=false; this.classList.remove('active'); this.innerHTML='🔒 관리';
+    document.getElementById('float-area').classList.remove('delete-mode');
+    toast('관리자 모드 종료');
+  } else {
+    document.getElementById('pw-input').value='';
+    document.getElementById('pw-error').textContent='';
+    document.getElementById('pw-modal').style.display='block';
+    setTimeout(()=>document.getElementById('pw-input').focus(),80);
+  }
+});
+function closePw(){ document.getElementById('pw-modal').style.display='none'; }
+function checkPw(){
+  if(document.getElementById('pw-input').value===ADMIN_PW){
+    deleteMode=true;
+    const btn=document.getElementById('del-btn');
+    btn.classList.add('active'); btn.innerHTML='🔓 관리 중';
+    document.getElementById('float-area').classList.add('delete-mode');
+    closePw(); toast('관리자 모드 활성화 🔓');
+  } else {
+    document.getElementById('pw-error').textContent='비밀번호가 올바르지 않습니다.';
+    document.getElementById('pw-input').value='';
+  }
+}
+function delBubble(e,id){
+  e.stopPropagation();
+  if(!confirm('이 메세지를 삭제할까요?')) return;
+  messages=messages.filter(m=>m.id!==id);
+  delete positions[id];
+  save(); savePositions(); render();
+  toast('삭제됐습니다.');
+}
+
+// ══════════ STORAGE ══════════
+function save(){ try{ localStorage.setItem('msgboard_v4', JSON.stringify(messages)); }catch(e){ toast('저장 실패 (용량 초과)'); } }
+function savePositions(){ try{ localStorage.setItem('msgboard_v4_pos', JSON.stringify(positions)); }catch(e){} }
+
+let _tt;
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(_tt); _tt=setTimeout(()=>el.classList.remove('show'),2400);
+}
+
+// ══════════ INIT ══════════
+render();
+window.addEventListener('resize', ()=>{ if(messages.length) render(); });
+</script>
+</body>
+</html>
