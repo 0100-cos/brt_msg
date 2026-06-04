@@ -299,7 +299,7 @@ input[type=range].rgb-sl::-webkit-slider-thumb{ -webkit-appearance:none;width:17
 <!-- HEADER -->
 <header class="header">
   <div class="header-title">
-    <h1>💬 메세지 보드</h1>
+    <h1>📟 0100 방명록</h1>
     <span id="msg-count">0개의 메세지</span>
   </div>
   <div class="header-actions">
@@ -308,7 +308,7 @@ input[type=range].rgb-sl::-webkit-slider-thumb{ -webkit-appearance:none;width:17
       <span id="live-label">연결 중</span>
     </div>
     <button class="btn btn-red" id="del-btn">🔒 관리</button>
-    <button class="btn btn-primary" id="write-btn">✉ 작성하기</button>
+    <button class="btn btn-primary" id="write-btn">🎞️작성하기</button>
   </div>
 </header>
 
@@ -442,10 +442,10 @@ input[type=range].rgb-sl::-webkit-slider-thumb{ -webkit-appearance:none;width:17
 //  CONFIG
 // ══════════════════════════════
 const ADMIN_PW = 'board2025'; // ← 비밀번호 변경 가능
-const EGG1 = ['브라운','착한친구','핑크','사회자'];
-const EGG2 = ['김솔음','솔음','포도','포도요원','노루','노루주임'];
+const EGG1 = ['브라운','착한친구','핑크','사회자','착한 친구','📺'];
+const EGG2 = ['김솔음','솔음','포도','포도요원','노루','노루주임','🦌','🍇','노루 주임', '포도 요원'];
 const EGG1_MSG = '하하하, 친구! 바쁜 나를 대신해서 메세지를 작성해주는 건가요?\n하지만 나를 배려하지 않아도 된답니다!';
-const EGG2_MSG = '죄송합니다만, 사칭은 삼가주세요.';
+const EGG2_MSG = '죄송합니다만, 제 사칭은 삼가주세요.';
 
 // ══════════════════════════════
 //  STATE
@@ -491,7 +491,7 @@ const norm = s => s.replace(/\s/g,'').toLowerCase();
 const hexToRgb = hex => { const m=hex.replace('#','').match(/([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i); return m?{r:parseInt(m[1],16),g:parseInt(m[2],16),b:parseInt(m[3],16)}:null; };
 const rgbToHex = (r,g,b) => '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('').toUpperCase();
 const hexToRgba = (hex,a) => { const c=hexToRgb(hex); return c?`rgba(${c.r},${c.g},${c.b},${a})`:`rgba(168,216,240,${a})`; };
-const getEmoji  = name => { const e=['🌟','🌙','🌊','🍀','🌸','⭐','🦋','🔮','✨','🎭','🌈','🐾']; let h=0; for(let i=0;i<name.length;i++) h=(h*31+name.charCodeAt(i))&0xffff; return e[h%e.length]; };
+const getEmoji  = name => { const e=['🌟','🌙','🌊','🍀','🌸','⭐','🦋','🔮','✨','🧸','🌈','🐾']; let h=0; for(let i=0;i<name.length;i++) h=(h*31+name.charCodeAt(i))&0xffff; return e[h%e.length]; };
 
 function formatTime(ts) {
   if (!ts) return '';
