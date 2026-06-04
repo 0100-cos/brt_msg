@@ -606,8 +606,8 @@ input[type=range].rgb-sl::-webkit-slider-thumb{
 <script>
 // ══════════ CONFIG ══════════
 const ADMIN_PW = 'board2025';
-const EGG1 = ['브라운','착한친구','핑크','사회자'];
-const EGG2 = ['김솔음','솔음','포도','포도요원','노루','노루주임'];
+const EGG1 = ['브라운','착한친구','핑크','사회자','착한 친구','📺'];
+const EGG2 = ['김솔음','솔음','포도','포도요원','노루','노루주임','🍇','🦌','노루 주임','포도 요원'];
 const EGG1_MSG = '하하하, 친구! 바쁜 나를 대신해서 메세지를 작성해주는 건가요?\n하지만 나를 배려하지 않아도 된답니다!';
 const EGG2_MSG = '죄송합니다만, 제 사칭은 삼가주세요.';
 
@@ -635,7 +635,7 @@ const hexToRgb = hex => {
 const rgbToHex = (r,g,b) => '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('').toUpperCase();
 const hexToRgba = (hex, a) => { const c=hexToRgb(hex); return c?`rgba(${c.r},${c.g},${c.b},${a})`:`rgba(168,216,240,${a})`; };
 const getEmoji = name => {
-  const e=['🌟','🌙','🌊','🍀','🌸','⭐','🦋','🔮','✨','🎭','🌈','🐾'];
+  const e=['🌟','🌙','🌊','🍀','🌸','⭐','🦋','🔮','✨','🧸','🌈','🐾'];
   let h=0; for(let i=0;i<name.length;i++) h=(h*31+name.charCodeAt(i))&0xffff;
   return e[h%e.length];
 };
